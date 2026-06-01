@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] — 2026-06-01
+
+### Added
+
+- **Reflection fact types** — nuevos schemas built-in `observation`, `reflection`, `decision`, `preference`. El extractor LLM los clasifica automáticamente durante la extracción desde el buffer.
+- **Recency boost** — `recency_weight=0.15` y `recency_half_life=7.0` en `EtchRetriever`. Facts recientes rankean más alto vía decay exponencial `2^(-days/half_life)`.
+- **`get_version()` MCP tool** — Hermes y otros agentes pueden consultar la versión instalada de Memento vía `importlib.metadata`.
+- **`PRAGMA optimize` en close** — mantenimiento automático del índice SQLite al cerrar `EtchStore`.
+
 ## [1.2.0] — 2026-05-27
 
 ### Added
