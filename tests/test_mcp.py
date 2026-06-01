@@ -53,6 +53,7 @@ class TestMCPTools:
                 assert "list_inbox" in tool_names
                 assert "promote_fact" in tool_names
                 assert "reject_fact" in tool_names
+                assert "get_version" in tool_names
                 # Atlas tools
                 assert "read_map" in tool_names
                 assert "list_maps" in tool_names
@@ -60,7 +61,7 @@ class TestMCPTools:
                 assert "link_fact" in tool_names
                 assert "search_map" in tool_names
                 assert "list_regions" in tool_names
-                assert len(tool_names) == 15
+                assert len(tool_names) == 16
 
     @pytest.mark.asyncio
     async def test_add_fact_and_search_roundtrip(self, server_params_memory):

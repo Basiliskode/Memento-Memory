@@ -1,7 +1,8 @@
 """FastMCP stdio server for memento.
 
-Exposes ``EtchStore`` as 9 MCP tools:
+Exposes ``EtchStore`` as 16 MCP tools:
 
+- ``get_version``
 - ``add_fact``
 - ``search_facts``
 - ``get_fact``
@@ -11,6 +12,12 @@ Exposes ``EtchStore`` as 9 MCP tools:
 - ``list_inbox``
 - ``promote_fact``
 - ``reject_fact``
+- ``read_map``
+- ``list_maps``
+- ``create_map``
+- ``link_fact``
+- ``search_map``
+- ``list_regions``
 
 The store is a module-level singleton initialized from the
 ``MEMENTO_DB_PATH`` environment variable (falls back to ``MEMORY_ETCH_DB_PATH``).
@@ -23,6 +30,7 @@ import json
 import logging
 import os
 import sys
+import importlib.metadata
 from pathlib import Path
 from typing import Any, Optional
 
@@ -67,6 +75,20 @@ def get_store() -> EtchStore:
 # ---------------------------------------------------------------------------
 
 server = FastMCP("memento", log_level="WARNING")
+
+
+@server.tool()
+def get_version() -> str:
+    """Get the installed memento-etch version.
+
+    Returns:
+        JSON string with ``{"version": "X.Y.Z"}``.
+    """
+    try:
+        ver = importlib.metadata.version("memento-etch")
+    except importlib.metadata.PackageNotFoundError:
+        ver = "unknown"
+    return json.dumps({"version": ver})
 
 
 @server.tool()
