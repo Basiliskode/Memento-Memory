@@ -9,6 +9,7 @@ Search strategy:
 5. RRF (Reciprocal Rank Fusion) of FTS5 and vector streams
 """
 
+import datetime as dt
 import logging
 import re
 from typing import Any, Optional, Callable
@@ -98,6 +99,8 @@ class EtchRetriever:
         reranker: Optional[Callable] = None,
         rerank_min_score: float = 0.0,
         compute_embedding: Optional[Callable[[str], list[float]]] = None,
+        recency_weight: float = 0.15,
+        recency_half_life: float = 7.0,
     ):
         self._store = store
         self._hrr_dim = hrr_dim if hrr_dim is not None else store.get_effective_hrr_dim()
@@ -105,6 +108,8 @@ class EtchRetriever:
         self._reranker = reranker
         self._rerank_min_score = rerank_min_score
         self._compute_embedding = compute_embedding
+        self._recency_weight = recency_weight
+        self._recency_half_life = recency_half_life
 
     def search(
         self,
@@ -336,6 +341,24 @@ class EtchRetriever:
                     logger.exception("HRR similarity failed for fact %s", c.get("fact_id"))
 
             score += hrr_sim * self._hrr_weight
+
+            # Recency boost: exponential decay (halves every recency_half_life days)
+            created_raw = c.get("created_at")
+            if created_raw:
+                try:
+                    if isinstance(created_raw, str):
+                        created_dt = dt.datetime.fromisoformat(created_raw)
+                    else:
+                        created_dt = created_raw
+                    if created_dt.tzinfo:
+                        now = dt.datetime.now(dt.timezone.utc)
+                    else:
+                        now = dt.datetime.now()
+                    days = max(0, (now - created_dt).total_seconds() / 86400)
+                    recency = 2.0 ** (-days / self._recency_half_life)
+                    score += recency * self._recency_weight
+                except Exception:
+                    pass
 
             c["_score"] = score
             c["_hrr_sim"] = hrr_sim
