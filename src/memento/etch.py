@@ -36,7 +36,7 @@ _EXTRACTION_SYSTEM_PROMPT = """You are a memory extraction assistant. Given a co
 Return JSON with this exact structure:
 {
     "facts": [
-        {"content": "fact statement", "category": "project|user_pref|tool|general", "importance": "critical|important|useful|trivial", "tags": "comma,separated,tags"}
+        {"content": "fact statement", "category": "project|user_pref|tool|general", "importance": "critical|important|useful|trivial", "tags": "comma,separated,tags", "fact_type": "observation|reflection|decision|preference"}
     ],
     "contradicts": []
 }
@@ -46,6 +46,10 @@ Rules:
 - Use present tense
 - Be specific — include names, versions, decisions
 - Default category is "general"
+- Default fact_type is "observation" for general extracted facts
+- Use "reflection" when the agent or user introspects on their own experiences, learnings, or behavior
+- Use "decision" when a deliberate choice is made with rationale
+- Use "preference" for user tastes, habits, or stylistic choices
 """
 
 
@@ -305,6 +309,7 @@ class EtchMemoryProvider:
             }
             importance = importance_map.get(importance_str, 0.5)
             tags = fact_data.get("tags", "")
+            fact_type = fact_data.get("fact_type", "")
 
             # Dedup: check if similar content exists
             existing = self._find_similar_fact(content, session_id)
@@ -325,6 +330,7 @@ class EtchMemoryProvider:
                     category=category,
                     tags=tags,
                     importance=importance,
+                    fact_type=fact_type,
                     session_id=session_id,
                     source_harness=self.config.get("source_harness", "hermes"),
                     source_agent=self.config.get("source_agent", ""),

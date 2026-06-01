@@ -159,6 +159,7 @@ class EtchStore:
         if auto_migrate:
             self._ensure_schema()
             self._migrate_schema()
+            self._register_default_schemas()
             self._start_hrr_flush()
 
     @staticmethod
@@ -190,8 +191,44 @@ class EtchStore:
 
         self._flush_pending_hrr_batch()
         with self._lock:
+            self._conn.execute("PRAGMA optimize")
             self._conn.close()
             self._closed = True
+
+    def _register_default_schemas(self) -> None:
+        """Register built-in fact schemas for recognized fact types.
+
+        These schemas are idempotent — calling them on an existing DB
+        is a no-op (``INSERT OR REPLACE``).
+        """
+        _typed_facts.register_schema(
+            self,
+            fact_type="reflection",
+            description="Reflective/self-analysis memory — agent introspecting on its own experiences, decisions, or learnings",
+            required_fields=["what"],
+            optional_fields=["why", "learned"],
+        )
+        _typed_facts.register_schema(
+            self,
+            fact_type="observation",
+            description="General factual observation extracted from a conversation or interaction",
+            required_fields=["what"],
+            optional_fields=["why", "where_text"],
+        )
+        _typed_facts.register_schema(
+            self,
+            fact_type="decision",
+            description="A decision made, with rationale and alternatives considered",
+            required_fields=["what", "why"],
+            optional_fields=["learned"],
+        )
+        _typed_facts.register_schema(
+            self,
+            fact_type="preference",
+            description="A user preference, habit, or stylistic choice",
+            required_fields=["what"],
+            optional_fields=["why"],
+        )
 
 
 # ---------------------------------------------------------------------------
