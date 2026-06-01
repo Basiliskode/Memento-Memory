@@ -1,6 +1,5 @@
 <p align="center">
-<img width="1672" height="941" alt="ChatGPT Image 25 may 2026, 19_20_05" src="https://github.com/user-attachments/assets/9d28ace8-67d5-41b3-8bbb-8f49468484f9" />
-
+    <img width="2172" height="724" alt="ChatGPT Image 31 may 2026, 21_02_15" src="https://github.com/user-attachments/assets/46a959b1-7347-41cb-933e-5a32d9f362fd" />
 <p/>
     
 # Memento Memory
