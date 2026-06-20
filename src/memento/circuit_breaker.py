@@ -78,6 +78,10 @@ class LLMCircuitBreaker:
         """Current consecutive failure count."""
         return self._failures
 
+    def __repr__(self) -> str:
+        status = "open" if not self.is_available() else "closed"
+        return f"LLMCircuitBreaker(failures={self._failures}/{self._max}, status={status})"
+
     @property
     def in_cooldown(self) -> bool:
         """Whether the breaker is currently in cooldown (open)."""

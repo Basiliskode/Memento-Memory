@@ -69,3 +69,4 @@ memory_etch-1.0.0/
 memory_etch_test*.db
 memory_etch_test*.db-shm
 memory_etch_test*.db-wal
+memento_test-*.db

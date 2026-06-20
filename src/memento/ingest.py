@@ -18,6 +18,7 @@ import io
 import json
 import logging
 import re
+import textwrap
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
 
@@ -115,31 +116,10 @@ def _parse_text_chunks(
 ) -> Generator[tuple[str, dict], None, None]:
     """Split *text* into *chunk_size*-character segments.
 
-    Prefers word boundaries (last space before the cut).  If a single word
-    is longer than *chunk_size* it is emitted as-is (no mid-word break).
+    Uses stdlib ``textwrap.wrap`` for word-boundary-aware splitting.
+    If a single word is longer than *chunk_size* it is emitted as-is.
     """
-    words = text.split()
-    if not words:
-        return
-
-    chunks: list[str] = []
-    current: list[str] = []
-    current_len = 0
-
-    for word in words:
-        # +1 for the space separator
-        sep_len = 1 if current else 0
-        if current_len + sep_len + len(word) > chunk_size and current:
-            chunks.append(" ".join(current))
-            current = [word]
-            current_len = len(word)
-        else:
-            current.append(word)
-            current_len += sep_len + len(word)
-
-    if current:
-        chunks.append(" ".join(current))
-
+    chunks = textwrap.wrap(text, width=chunk_size, break_long_words=True, break_on_hyphens=False)
     total = len(chunks)
     for i, chunk in enumerate(chunks):
         yield chunk, {"chunk_index": i, "total_chunks": total}
