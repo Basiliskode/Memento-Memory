@@ -491,6 +491,79 @@ Documentación detallada en [`docs/api/`](docs/api/):
 
 ---
 
+## Auto-Capture (v1.3)
+
+Wire Memento into your host's turn lifecycle so prompts and pre-compact summaries are saved automatically. The agent still calls `mem_save` for explicit decisions; auto-capture fills in the rest.
+
+### Three hooks
+
+| When | What to call | CLI equivalent |
+|---|---|---|
+| Every user message | `on_user_prompt(session_id, text)` | `memento-capture prompt <s> --text "..."` |
+| Before context compaction | `on_compact(session_id, goal=..., accomplishments=..., next_steps=...)` | `memento-capture summary <s> --goal ... --accomplished ...` |
+| Session close | `on_session_close(session_id, ...)` | `memento-capture close <s> ...` |
+
+### Quick start (Python)
+
+```python
+import os
+os.environ["MEMENTO_FAST_BUFFER"] = "1"  # zero-latency in-process path
+
+from memento.capture import on_user_prompt, on_compact, on_session_close
+
+# Every turn — buffer the user's prompt
+on_user_prompt("sess-1", user_text)
+
+# Before compacting — persist a structured summary
+on_compact(
+    "sess-1",
+    goal="Decide on runtime DB",
+    accomplishments=["Picked PostgreSQL", "Wrote migration plan"],
+    next_steps=["Implement connection pooling"],
+    discoveries=["SQLite WAL was the bottleneck"],
+    files_touched=["apps/runtime/db.py"],
+)
+
+# Session end — same args, different lifecycle intent
+on_session_close("sess-1", goal="...", accomplishments=["..."])
+```
+
+### Quick start (CLI)
+
+```bash
+# Pre-turn
+memento-capture prompt sess-1 --text "Use SQLite FTS5 for retrieval"
+
+# Pre-compact
+memento-capture summary sess-1 \
+  --goal "Wire FTS5 stemmer" \
+  --accomplished "Added tokenizer config" \
+  --next "Add tests" \
+  --discovery "Porter fails on Spanish" \
+  --file src/memento/retrieval.py
+
+# Inspect resolved config
+memento-capture config
+```
+
+### Noise filter
+
+By default, short confirmations (`ok`, `dale`, `listo`, emojis-only) are dropped before reaching Memento. Override via `~/.memento/capture.yaml`:
+
+```yaml
+min_length: 12
+drop_patterns:
+  - "^ok$"
+  - "^dale$"
+custom_capture_prefixes:    # bypass filter when prompt starts with:
+  - "/remember"
+  - "/note"
+```
+
+See `examples/auto-capture-loop.md` for the end-to-end walk-through.
+
+---
+
 ## Contribuir
 
 ```bash

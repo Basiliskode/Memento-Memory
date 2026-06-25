@@ -37,7 +37,7 @@ class TestMCPTools:
 
     @pytest.mark.asyncio
     async def test_list_tools(self, server_params_memory):
-        """Server exposes the expected tools (9 base + 6 atlas = 15)."""
+        """Server exposes the expected tools (9 base + 7 atlas + 6 mem_* = 22)."""
         async with stdio_client(server_params_memory) as (read, write):
             from mcp import ClientSession
             async with ClientSession(read, write) as session:
@@ -61,7 +61,7 @@ class TestMCPTools:
                 assert "link_fact" in tool_names
                 assert "search_map" in tool_names
                 assert "list_regions" in tool_names
-                assert len(tool_names) == 16
+                assert len(tool_names) == 22  # 9 base + 7 atlas + 6 mem_* aliases
 
     @pytest.mark.asyncio
     async def test_add_fact_and_search_roundtrip(self, server_params_memory):

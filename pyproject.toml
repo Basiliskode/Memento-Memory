@@ -30,14 +30,16 @@ embedding = ["fastembed>=0.5.0", "httpx>=0.27"]
 embeddings = ["fastembed>=0.5.0", "httpx>=0.27", "numpy>=1.24.0"]
 bge-m3 = ["fastembed>=0.5.0"]
 mcp = ["mcp>=1.0.0"]
+capture = ["pyyaml>=6.0"]
 benchmark = ["google-genai>=2.4.0"]
 openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.30.0"]
-dev = ["build>=1.2.0", "pytest>=8.0.0", "pytest-cov>=5.0.0", "ruff>=0.8.0", "twine>=5.0.0"]
-all = ["memento-etch[hrr]", "memento-etch[embeddings]", "memento-etch[mcp]", "memento-etch[openai]", "memento-etch[anthropic]"]
+dev = ["build>=1.2.0", "pytest>=8.0.0", "pytest-cov>=5.0.0", "ruff>=0.8.0", "twine>=5.0.0", "pyyaml>=6.0"]
+all = ["memento-etch[hrr]", "memento-etch[embeddings]", "memento-etch[mcp]", "memento-etch[capture]", "memento-etch[openai]", "memento-etch[anthropic]"]
 
 [project.scripts]
 etch-viewer = "memento.viewer:main"
+memento-capture = "memento.capture:cli"
 
 [project.urls]
 "Homepage" = "https://github.com/Basiliskode/Memento-Memory"
