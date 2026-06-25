@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`scripts/install_hermes.sh`** — instalador one-shot que configura Memento como memory provider de cualquier Hermes Agent (multi-profile). Idempotente, zero-config si `MINIMAX_API_KEY` está en el ambiente.
+- **`scripts/hermes_hooks/`** — bundle de hooks (`pre-turn.sh`, `pre-compact.sh`, `memento_write.py`) listos para copiar a `~/.hermes/agent-hooks/`. Incluyen extracción opcional con MiniMax-M3.
+- **`docs/integrations/hermes-agent.md`** — guía detallada: instalación manual paso a paso, troubleshooting, variables de entorno.
+- **Sección "Hermes Agent — Instalación en 30 segundos"** en el README con one-liner.
+
+### Changed
+
+- README: removida referencia a "Engram" en la sección "Proyectos relacionados".
+- README: traducida al español la sección "Hive Memory (v1.1)" (Scopes, Inbox workflow).
+
 ## [1.2.1] — 2026-06-01
 
 ### Added

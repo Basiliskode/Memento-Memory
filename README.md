@@ -14,6 +14,7 @@ Sin servicios externos, sin GPU, sin API keys.
 - [¿Por qué memento?](#por-qué-memento)
 - [Instalación](#instalación)
 - [Primeros pasos](#primeros-pasos)
+- [Hermes Agent — Instalación en 30 segundos](#hermes-agent--instalación-en-30-segundos)
 - [Arquitectura](#arquitectura)
 - [Características](#características)
 - [Embedding Providers](#embedding-providers)
@@ -102,6 +103,31 @@ results = retriever.search(
 # Si estás en un repo git, el proyecto se detecta solo del remote origin
 store = EtchStore("project.db", project="auto")
 ```
+
+---
+
+## Hermes Agent — Instalación en 30 segundos
+
+Si usás [Hermes Agent](https://github.com/NousResearch/hermes-agent), tenés
+un instalador que configura todo automáticamente: hooks, plugin, variables
+de entorno, y (opcionalmente) extracción LLM con MiniMax-M3.
+
+```bash
+pip install "memento-etch[hrr,embeddings]"
+git clone https://github.com/Basiliskode/Memento-Memory
+cd Memento-Memory
+./scripts/install_hermes.sh        # detecta profiles y configura cada uno
+hermes gateway restart              # una sola línea y listo
+```
+
+El script es **idempotente** (lo podés correr varias veces sin romper
+nada), **multi-profile** (configura cada `~/.hermes/profiles/<name>/`
+por separado), y **zero-config** si ya tenés `MINIMAX_API_KEY` en tu
+ambiente. Sin LLM, también funciona — solo guarda el prompt crudo en
+lugar de facts extraídos.
+
+Para configuración detallada (instalación manual, troubleshooting,
+variables de entorno), ver [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md).
 
 ---
 
@@ -236,22 +262,22 @@ Configuración vía `MEMENTO_DB_PATH`. Si no está definida, el servidor usa `:m
 
 ## Hive Memory (v1.1)
 
-Provenance-aware facts with governed scopes and an inbox review lifecycle. Every fact can carry source identity (`source_harness`, `source_agent`, `source_kind`) and a scope that controls discoverability.
+Facts con provenance y scopes gobernados, más un ciclo de revisión vía inbox. Cada fact puede llevar identidad de origen (`source_harness`, `source_agent`, `source_kind`) y un scope que controla su descubribilidad.
 
 ### Scopes
 
-| Scope | Default search | Use case |
-|-------|---------------|----------|
-| `canonical` | ✅ Included | Trusted project memory |
-| `inbox` | ❌ Excluded | Untrusted / subagent writes awaiting review |
-| `personal` | ❌ Excluded | Private user facts |
-| `ephemeral` | ❌ Excluded | Transient data |
+| Scope | Búsqueda por defecto | Caso de uso |
+|-------|---------------------|-------------|
+| `canonical` | ✅ Incluido | Memoria de proyecto confiable |
+| `inbox` | ❌ Excluido | Escrituras no confiables / de subagentes esperando revisión |
+| `personal` | ❌ Excluido | Facts privados del usuario |
+| `ephemeral` | ❌ Excluido | Datos transitorios |
 
-**Provenance example:**
+**Ejemplo de provenance:**
 
 ```python
 store.add_fact(
-    "FastMCP retries on timeout",
+    "FastMCP reintenta en timeout",
     source_harness="opencode",
     source_agent="worker-1",
     source_kind="manual",
@@ -259,20 +285,20 @@ store.add_fact(
 )
 ```
 
-### Inbox workflow
+### Flujo de inbox
 
 ```python
-# List pending inbox facts
-inbox = store.list_inbox(project="my-project", limit=20)
+# Listar facts pendientes en inbox
+inbox = store.list_inbox(project="mi-proyecto", limit=20)
 
-# Promote to canonical (becomes searchable)
+# Promover a canonical (se vuelve buscable)
 store.promote_fact(inbox[0]["fact_id"])
 
-# Reject (soft-deleted, hidden from default search)
-store.reject_fact(inbox[3]["fact_id"], reason="low quality")
+# Rechazar (soft-delete, oculto de búsqueda por defecto)
+store.reject_fact(inbox[3]["fact_id"], reason="baja calidad")
 ```
 
-No new dependencies. Works with existing `add_fact` callers — provenance args are optional, scope defaults to `canonical`. See [`docs/api/store.md`](docs/api/store.md) for the full API.
+Sin dependencias nuevas. Funciona con los callers existentes de `add_fact` — los args de provenance son opcionales, el scope por defecto es `canonical`. Ver [`docs/api/store.md`](docs/api/store.md) para la API completa.
 
 ---
 
@@ -470,7 +496,6 @@ Documentación detallada en [`docs/api/`](docs/api/):
 | **memento** | Local-first, KISS, SQLite, sin runtime externo, HRR vectors |
 | **CodeGraph** | Code intelligence (tree-sitter + grafo de símbolos), NO es memoria de agente |
 | **AgentMemory** | Memoria full-featured con iii-engine dedicado, más features, más complejidad |
-| **Engram** | Memoria para agentes Go/MCP, sin embeddings, curada por el agente |
 
 ---
 
