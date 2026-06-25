@@ -115,6 +115,7 @@ class TestConfigLoader:
         assert cfg.min_length == cap.DEFAULT_MIN_LEN
 
     def test_yaml_loaded(self, tmp_path: Path):
+        pytest.importorskip("yaml", reason="PyYAML optional dep; install memento-etch[capture] or memento-etch[dev]")
         cfg_file = tmp_path / "capture.yaml"
         cfg_file.write_text(
             "min_length: 8\n"
