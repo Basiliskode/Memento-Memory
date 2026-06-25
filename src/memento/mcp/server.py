@@ -30,6 +30,7 @@ import importlib.metadata
 import json
 import logging
 import os
+from collections import OrderedDict
 
 from mcp.server.fastmcp import FastMCP
 
@@ -494,7 +495,8 @@ def reject_fact(fact_id: int, reason: str = "") -> str:
 # session_id -> most recent user prompt captured via mem_save_prompt.
 # Module-level singleton because FastMCP runs single-threaded async;
 # the dict is keyed by session_id and cleared at session close.
-_prompt_buffer: dict[str, str] = {}
+_PROMPT_BUFFER_MAX = 256
+_prompt_buffer: "OrderedDict[str, str]" = OrderedDict()
 
 
 def _topic_key_from_type(type_: str, explicit: str | None = None) -> str:
@@ -525,6 +527,10 @@ def mem_save_prompt(session_id: str, prompt: str) -> str:
         JSON string with ``{"status": "buffered", "session_id": str}``.
     """
     _prompt_buffer[session_id] = prompt
+    # Evict the oldest entry if we exceed the cap.
+    while len(_prompt_buffer) > _PROMPT_BUFFER_MAX:
+        _prompt_buffer.popitem(last=False)
+    _prompt_buffer.move_to_end(session_id)
     return json.dumps({"status": "buffered", "session_id": session_id})
 
 
@@ -557,7 +563,7 @@ def mem_save(
             and session-scoped retrieval).
         topic_key: Optional explicit topic key for upsert behaviour.
             Defaults to ``mem:<type>`` so same-type saves merge.
-        scope: Fact scope (default ``"project"``).
+        scope: Fact scope (default ``"canonical"``).
         capture_prompt: When true (default) and a prompt was buffered
             for ``session_id``, attach it as metadata.
 
@@ -565,17 +571,13 @@ def mem_save(
         JSON string with ``{"id": int, "status": "created"|"updated",
         "user_prompt_attached": bool}``.
     """
-    # 1. Build the canonical content -- title is the heading, content is the body.
     full_content = f"{title}\n\n{content}".strip()
 
-    # 2. Consume a buffered prompt if requested.
     metadata_str: str | None = None
     if capture_prompt and session_id and session_id in _prompt_buffer:
-        prompt_text = _prompt_buffer.pop(session_id)
-        metadata_str = json.dumps({"user_prompt": prompt_text})
+        metadata_str = json.dumps({"user_prompt": _prompt_buffer[session_id]})
 
-    # 3. Delegate to the canonical add_fact tool.
-    return add_fact(
+    result = add_fact(
         content=full_content,
         project=project or "",
         session_id=session_id or "",
@@ -584,6 +586,10 @@ def mem_save(
         scope=scope,
         source_kind="mem_save",
     )
+    # Consume the buffered prompt only after the write succeeded.
+    if metadata_str is not None and session_id:
+        _prompt_buffer.pop(session_id, None)
+    return result
 
 
 @server.tool()
@@ -665,20 +671,21 @@ def mem_session_summary(
     Returns:
         JSON string with ``{"id": int, "status": "created"}``.
     """
+    def _append_section(header: str, items: list[str] | None) -> None:
+        if not items:
+            return
+        bullets = [f"- {x}" for x in items if x.strip()]
+        if not bullets:
+            return
+        sections.append(f"## {header}")
+        sections.extend(bullets)
+
     sections: list[str] = ["## Goal", goal.strip()]
-    if discoveries:
-        sections.append("## Discoveries")
-        sections.extend(f"- {d}" for d in discoveries if d.strip())
-    if accomplishments:
-        sections.append("## Accomplished")
-        sections.extend(f"- {a}" for a in accomplishments if a.strip())
-    if next_steps:
-        sections.append("## Next Steps")
-        sections.extend(f"- {n}" for n in next_steps if n.strip())
-    if files_touched:
-        sections.append("## Relevant Files")
-        sections.extend(f"- {f}" for f in files_touched if f.strip())
-    full_content = "\n\n".join(sections)
+    _append_section("Discoveries", discoveries)
+    _append_section("Accomplished", accomplishments)
+    _append_section("Next Steps", next_steps)
+    _append_section("Relevant Files", files_touched)
+    full_content = "\n\n".join(s for s in sections if s)
 
     # Clear buffered prompt on session close.
     _prompt_buffer.pop(session_id, None)

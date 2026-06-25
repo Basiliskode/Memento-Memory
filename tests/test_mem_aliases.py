@@ -249,7 +249,6 @@ def test_mem_context_excludes_deleted(fresh_db_and_buffer) -> None:
 def test_mem_context_newest_first(fresh_db_and_buffer) -> None:
     """mem_context returns facts in DESC created_at order."""
     import time as _time
-
     server = fresh_db_and_buffer
     # Sleep between saves so created_at (second-resolution) differs.
     ids = []
@@ -276,7 +275,6 @@ def test_mem_context_newest_first(fresh_db_and_buffer) -> None:
 def test_mem_context_with_session_summary_returns_structured_layout(fresh_db_and_buffer) -> None:
     """After mem_session_summary, mem_context recovers the summary fact."""
     import time as _time
-
     server = fresh_db_and_buffer
     server.mem_save(
         title="Earlier decision",
@@ -308,7 +306,6 @@ def test_mem_context_with_session_summary_returns_structured_layout(fresh_db_and
 def test_full_session_loop_with_prompt_capture(fresh_db_and_buffer) -> None:
     """Simulate a single user turn: prompt captured, decision saved."""
     import time as _time
-
     server = fresh_db_and_buffer
     session = "agent-2026-06-25-session-001"
 
