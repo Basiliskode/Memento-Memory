@@ -232,6 +232,23 @@ Herramientas MCP expuestas (15 tools):
 
 Configuración vía `MEMENTO_DB_PATH`. Si no está definida, el servidor usa `:memory:` como default; para uso persistente, seteá una ruta explícita como `./memory.db` o `~/.memento/etch.db`.
 
+### Engram-compatible aliases (mem_save / mem_search / mem_context / mem_session_summary)
+
+Además de las 15 tools de bajo nivel, el MCP server expone 6 aliases semánticos compatibles con el [protocolo Engram](https://github.com/Gentleman-Programming/gentle-ai/blob/main/docs/engram.md). Esto permite usar el mismo system-prompt y las mismas skills independientemente del backend de memoria.
+
+| Alias | Equivalente | Propósito |
+|---|---|---|
+| `mem_save_prompt(session_id, prompt)` | — | Buffer del último prompt del usuario para auto-capture |
+| `mem_save(title, type, content, ...)` | `add_fact` | Guardar decisión / descubrimiento / patrón |
+| `mem_search(query, limit, project)` | `search_facts` | Búsqueda FTS5 |
+| `mem_context(session_id, limit)` | `get_timeline` (filtrado) | Recuperar historial reciente de la sesión |
+| `mem_session_summary(session_id, ...)` | `add_fact` (estructurado) | Resumen de cierre de sesión |
+| `mem_review(action="list", project)` | `list_facts` | Lifecycle / staleness |
+
+**Auto-capture de prompt:** `mem_save_prompt` bufferea el prompt del usuario por `session_id`. El próximo `mem_save` con `capture_prompt=True` (default) adjunta ese prompt como metadata antes de consumirlo (one-shot handoff). `mem_session_summary` limpia el buffer al cerrar la sesión.
+
+**Protocolo completo** (system-prompt para agentes): ver [`examples/memento-protocol.md`](examples/memento-protocol.md). Skills escritos contra Engram funcionan contra memento sin cambios.
+
 ---
 
 ## Hive Memory (v1.1)

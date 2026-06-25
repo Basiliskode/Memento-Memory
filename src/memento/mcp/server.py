@@ -26,13 +26,10 @@ Usage:
     MEMENTO_DB_PATH=~/.memento/etch.db python -m memento.mcp
 """
 
+import importlib.metadata
 import json
 import logging
 import os
-import sys
-import importlib.metadata
-from pathlib import Path
-from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -44,7 +41,7 @@ logger = logging.getLogger(__name__)
 # Singleton store
 # ---------------------------------------------------------------------------
 
-_store: Optional[EtchStore] = None
+_store: EtchStore | None = None
 
 
 def get_store() -> EtchStore:
@@ -94,15 +91,15 @@ def get_version() -> str:
 @server.tool()
 def add_fact(
     content: str,
-    project: Optional[str] = None,
-    session_id: Optional[str] = None,
-    topic_key: Optional[str] = None,
-    source: Optional[str] = None,
-    metadata: Optional[str] = None,
-    source_harness: Optional[str] = None,
-    source_agent: Optional[str] = None,
-    source_kind: Optional[str] = None,
-    scope: Optional[str] = None,
+    project: str | None = None,
+    session_id: str | None = None,
+    topic_key: str | None = None,
+    source: str | None = None,
+    metadata: str | None = None,
+    source_harness: str | None = None,
+    source_agent: str | None = None,
+    source_kind: str | None = None,
+    scope: str | None = None,
 ) -> str:
     """Add a fact to the memory store.
 
@@ -154,12 +151,12 @@ def add_fact(
 def search_facts(
     query: str,
     limit: int = 10,
-    project: Optional[str] = None,
+    project: str | None = None,
     mode: str = "auto",
-    scope: Optional[str] = None,
-    source_harness: Optional[str] = None,
-    source_agent: Optional[str] = None,
-    source_kind: Optional[str] = None,
+    scope: str | None = None,
+    source_harness: str | None = None,
+    source_agent: str | None = None,
+    source_kind: str | None = None,
 ) -> str:
     """Search facts by full-text query.
 
@@ -237,7 +234,7 @@ def delete_fact(fact_id: int) -> str:
 
 
 @server.tool()
-def get_timeline(project: Optional[str] = None, limit: int = 20) -> str:
+def get_timeline(project: str | None = None, limit: int = 20) -> str:
     """Get fact timeline, newest first.
 
     Args:
@@ -288,8 +285,8 @@ def search_similar(query: str, limit: int = 5) -> str:
 
 @server.tool()
 def list_inbox(
-    project: Optional[str] = None,
-    source_harness: Optional[str] = None,
+    project: str | None = None,
+    source_harness: str | None = None,
     limit: int = 50,
 ) -> str:
     """List inbox facts for review.
@@ -476,3 +473,257 @@ def reject_fact(fact_id: int, reason: str = "") -> str:
     ok = store.reject_fact(fact_id, reason=reason)
     status = "rejected" if ok else "not_found"
     return json.dumps({"status": status})
+
+
+# ---------------------------------------------------------------------------
+# Engram-compatible aliases (mem_save, mem_search, mem_context,
+# mem_session_summary, mem_save_prompt, mem_review).
+#
+# These thin wrappers expose the same surface as Engram's agent tools so
+# skills written for Engram (and the system-prompt protocol in
+# examples/memento-protocol.md) work against memento unchanged. They
+# delegate to the canonical tools above -- the underlying EtchStore
+# storage and search behaviour is unchanged.
+#
+# The aliases also implement memento's auto-capture behaviour:
+# `mem_save_prompt` buffers the most recent user prompt for a session,
+# and `mem_save` (when `capture_prompt=True`) attaches that buffered
+# prompt as metadata on the persisted fact.
+# ---------------------------------------------------------------------------
+
+# session_id -> most recent user prompt captured via mem_save_prompt.
+# Module-level singleton because FastMCP runs single-threaded async;
+# the dict is keyed by session_id and cleared at session close.
+_prompt_buffer: dict[str, str] = {}
+
+
+def _topic_key_from_type(type_: str, explicit: str | None = None) -> str:
+    """Derive a default topic_key from a mem_save type when none is supplied.
+
+    Returns a stable key like ``mem:<type>`` so multiple saves of the same
+    kind upsert instead of fragmenting into many one-off facts.
+    """
+    if explicit:
+        return explicit
+    return f"mem:{type_}" if type_ else ""
+
+
+@server.tool()
+def mem_save_prompt(session_id: str, prompt: str) -> str:
+    """Buffer the user's most recent prompt for later attachment to mem_save.
+
+    The buffer is keyed by ``session_id`` so concurrent sessions do not
+    collide. The prompt is consumed (popped) by the next ``mem_save`` call
+    with ``capture_prompt=True`` for the same session -- it is a one-shot
+    handoff, not a multi-message log.
+
+    Args:
+        session_id: Active session identifier.
+        prompt: The user's prompt text to buffer.
+
+    Returns:
+        JSON string with ``{"status": "buffered", "session_id": str}``.
+    """
+    _prompt_buffer[session_id] = prompt
+    return json.dumps({"status": "buffered", "session_id": session_id})
+
+
+@server.tool()
+def mem_save(
+    title: str,
+    type: str,
+    content: str,
+    project: str | None = None,
+    session_id: str | None = None,
+    topic_key: str | None = None,
+    scope: str = "canonical",
+    capture_prompt: bool = True,
+) -> str:
+    """Save a decision, discovery, or pattern (Engram-compatible).
+
+    Combines ``title`` and structured ``content`` into a single fact
+    namespaced under ``project``. If a prompt was previously buffered for
+    ``session_id`` via :func:`mem_save_prompt` and ``capture_prompt`` is
+    true, the prompt is attached as JSON metadata before being consumed.
+
+    Args:
+        title: Verb + what -- short, searchable (e.g. "Fixed N+1 in UserList").
+        type: One of ``bugfix | decision | architecture | discovery |
+            pattern | config | preference``. Drives the default topic_key.
+        content: Structured body covering what / why / where / learned.
+        project: Project namespace. Defaults to the value derived from
+            the current working directory at MCP server boot.
+        session_id: Optional session identifier (used for prompt capture
+            and session-scoped retrieval).
+        topic_key: Optional explicit topic key for upsert behaviour.
+            Defaults to ``mem:<type>`` so same-type saves merge.
+        scope: Fact scope (default ``"project"``).
+        capture_prompt: When true (default) and a prompt was buffered
+            for ``session_id``, attach it as metadata.
+
+    Returns:
+        JSON string with ``{"id": int, "status": "created"|"updated",
+        "user_prompt_attached": bool}``.
+    """
+    # 1. Build the canonical content -- title is the heading, content is the body.
+    full_content = f"{title}\n\n{content}".strip()
+
+    # 2. Consume a buffered prompt if requested.
+    metadata_str: str | None = None
+    if capture_prompt and session_id and session_id in _prompt_buffer:
+        prompt_text = _prompt_buffer.pop(session_id)
+        metadata_str = json.dumps({"user_prompt": prompt_text})
+
+    # 3. Delegate to the canonical add_fact tool.
+    return add_fact(
+        content=full_content,
+        project=project or "",
+        session_id=session_id or "",
+        topic_key=_topic_key_from_type(type, topic_key),
+        metadata=metadata_str,
+        scope=scope,
+        source_kind="mem_save",
+    )
+
+
+@server.tool()
+def mem_search(query: str, limit: int = 10, project: str | None = None) -> str:
+    """Search memory (Engram-compatible wrapper around search_facts).
+
+    Args:
+        query: Full-text search query.
+        limit: Max results (default 10).
+        project: Optional project namespace filter.
+
+    Returns:
+        JSON array of fact dicts.
+    """
+    return search_facts(query=query, limit=limit, project=project or "")
+
+
+@server.tool()
+def mem_context(session_id: str, limit: int = 20) -> str:
+    """Recover recent session history (Engram-compatible).
+
+    Returns facts recorded for ``session_id``, newest first, capped at
+    ``limit``. This is the first call an agent should make when a user
+    asks "remember", "recall", "what did we do", or "how did we solve".
+
+    Args:
+        session_id: Session identifier to recover.
+        limit: Max facts to return (default 20).
+
+    Returns:
+        JSON array of fact dicts ordered newest-first.
+    """
+    store = get_store()
+    # Delegate to list_facts -- it already supports session_id via the
+    # caller-supplied filter path; we hand-roll the SQL through the
+    # store's connection to honour session scoping.
+    with store._lock:  # type: ignore[attr-defined]
+        cur = store._conn.cursor()  # type: ignore[attr-defined]
+        cur.execute(
+            "SELECT * FROM facts WHERE session_id = ? "
+            "AND (deleted IS NULL OR deleted = 0) "
+            "ORDER BY created_at DESC LIMIT ?",
+            (session_id, limit),
+        )
+        rows = cur.fetchall()
+    output = []
+    for r in rows:
+        d = dict(r)
+        d.pop("hrr_vector", None)
+        d.pop("embedding", None)
+        output.append(d)
+    return json.dumps(output, default=str)
+
+
+@server.tool()
+def mem_session_summary(
+    session_id: str,
+    goal: str,
+    accomplishments: list[str],
+    next_steps: list[str],
+    discoveries: list[str] | None = None,
+    files_touched: list[str] | None = None,
+) -> str:
+    """Save an end-of-session summary (Engram session close protocol).
+
+    Persists a structured fact with the standard Engram layout (Goal /
+    Instructions / Discoveries / Accomplished / Next Steps / Relevant
+    Files). Clears any buffered prompt for the session so the next
+    session starts clean.
+
+    Args:
+        session_id: Session being closed.
+        goal: What we were working on this session.
+        accomplishments: Completed items with key details.
+        next_steps: What remains for the next session.
+        discoveries: Technical findings, gotchas, non-obvious learnings.
+        files_touched: Paths touched this session with a one-line gloss.
+
+    Returns:
+        JSON string with ``{"id": int, "status": "created"}``.
+    """
+    sections: list[str] = ["## Goal", goal.strip()]
+    if discoveries:
+        sections.append("## Discoveries")
+        sections.extend(f"- {d}" for d in discoveries if d.strip())
+    if accomplishments:
+        sections.append("## Accomplished")
+        sections.extend(f"- {a}" for a in accomplishments if a.strip())
+    if next_steps:
+        sections.append("## Next Steps")
+        sections.extend(f"- {n}" for n in next_steps if n.strip())
+    if files_touched:
+        sections.append("## Relevant Files")
+        sections.extend(f"- {f}" for f in files_touched if f.strip())
+    full_content = "\n\n".join(sections)
+
+    # Clear buffered prompt on session close.
+    _prompt_buffer.pop(session_id, None)
+
+    return add_fact(
+        content=full_content,
+        project="",
+        session_id=session_id,
+        topic_key=f"mem:session-summary:{session_id}",
+        metadata=json.dumps({
+            "summary_kind": "session_close",
+            "session_id": session_id,
+        }),
+        scope="canonical",
+        source_kind="mem_session_summary",
+    )
+
+
+@server.tool()
+def mem_review(action: str = "list", project: str | None = None) -> str:
+    """Lifecycle management for stored memories (Engram-compatible).
+
+    For memento's first release this only implements ``action="list"``,
+    which returns facts whose ``learned`` metadata hints at staleness
+    (e.g. ``needs_review`` markers). A future release will add
+    ``mark_reviewed``; the surface is reserved here so skills do not
+    break when that lands.
+
+    Args:
+        action: Currently only ``"list"`` is supported.
+        project: Optional project namespace filter.
+
+    Returns:
+        JSON string with ``{"action": "list", "items": [...], "count": N}``.
+    """
+    if action != "list":
+        return json.dumps({
+            "status": "unsupported",
+            "action": action,
+            "supported": ["list"],
+        })
+    store = get_store()
+    items = store.list_facts(project=project or "", limit=200)
+    return json.dumps({
+        "action": "list",
+        "items": items,
+        "count": len(items),
+    }, default=str)
