@@ -38,6 +38,7 @@ all = ["memento-etch[hrr]", "memento-etch[embeddings]", "memento-etch[mcp]", "me
 
 [project.scripts]
 etch-viewer = "memento.viewer:main"
+memento-capture = "memento.capture:cli"
 
 [project.urls]
 "Homepage" = "https://github.com/Basiliskode/Memento-Memory"
