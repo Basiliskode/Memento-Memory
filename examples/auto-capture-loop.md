@@ -103,7 +103,7 @@ memento-capture summary "$SESSION_ID" \
 What happens:
 
 1. `on_compact` calls `mem_session_summary` with the structured fields.
-2. The fact is persisted with the Engram layout (`## Goal` / `## Accomplished` / `## Next Steps` / etc.).
+2. The fact is persisted with the structured session layout (`## Goal` / `## Accomplished` / `## Next Steps` / etc.).
 3. The buffered prompt (if any) for this session is cleared.
 
 ### Step 6 — Verify the capture

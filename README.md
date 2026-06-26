@@ -211,7 +211,7 @@ Cada nivel es opcional, aditivo, y retrocompatible.
 
 ---
 
-## Embedding Providers
+## Proveedores de Embeddings
 
 Tres modos de búsqueda semántica, plug and play:
 
@@ -258,30 +258,11 @@ Herramientas MCP expuestas (15 tools):
 
 Configuración vía `MEMENTO_DB_PATH`. Si no está definida, el servidor usa `:memory:` como default; para uso persistente, seteá una ruta explícita como `./memory.db` o `~/.memento/etch.db`.
 
-### Engram-compatible aliases (mem_save / mem_search / mem_context / mem_session_summary)
-
-Además de las 15 tools de bajo nivel, el MCP server expone 6 aliases semánticos compatibles con el [protocolo Engram](https://github.com/Gentleman-Programming/gentle-ai/blob/main/docs/engram.md). Esto permite usar el mismo system-prompt y las mismas skills independientemente del backend de memoria.
-
-| Alias | Equivalente | Propósito |
-|---|---|---|
-| `mem_save_prompt(session_id, prompt)` | — | Buffer del último prompt del usuario para auto-capture |
-| `mem_save(title, type, content, ...)` | `add_fact` | Guardar decisión / descubrimiento / patrón |
-| `mem_search(query, limit, project)` | `search_facts` | Búsqueda FTS5 |
-| `mem_context(session_id, limit)` | `get_timeline` (filtrado) | Recuperar historial reciente de la sesión |
-| `mem_session_summary(session_id, ...)` | `add_fact` (estructurado) | Resumen de cierre de sesión |
-| `mem_review(action="list", project)` | `list_facts` | Lifecycle / staleness |
-
-**Auto-capture de prompt:** `mem_save_prompt` bufferea el prompt del usuario por `session_id`. El próximo `mem_save` con `capture_prompt=True` (default) adjunta ese prompt como metadata antes de consumirlo (one-shot handoff). `mem_session_summary` limpia el buffer al cerrar la sesión.
-
-**Protocolo completo** (system-prompt para agentes): ver [`examples/memento-protocol.md`](examples/memento-protocol.md). Skills escritos contra Engram funcionan contra memento sin cambios.
-
----
-
 ## Hive Memory (v1.1)
 
 Facts con provenance y scopes gobernados, más un ciclo de revisión vía inbox. Cada fact puede llevar identidad de origen (`source_harness`, `source_agent`, `source_kind`) y un scope que controla su descubribilidad.
 
-### Scopes
+### Ámbitos
 
 | Scope | Búsqueda por defecto | Caso de uso |
 |-------|---------------------|-------------|
@@ -334,7 +315,7 @@ Atlas **complementa** facts, no los reemplaza. Ambos conviven en la misma DB y p
 | **Edge** | Relación estructurada entre regiones (contiene, importa, extiende, referencia) |
 | **Fact link** | Puente entre una región de Atlas y un fact de Memento |
 
-### Quick start
+### Inicio rápido
 
 ```python
 from memento import EtchStore, EtchRetriever
@@ -364,7 +345,7 @@ for r in results:
     print(f"[{r['_score']:.2f}] {r['name']} ({r['kind']})")
 ```
 
-### MCP Atlas tools
+### Herramientas MCP de Atlas
 
 | Tool | Propósito |
 |------|-----------|
@@ -506,21 +487,11 @@ Documentación detallada en [`docs/api/`](docs/api/):
 
 ---
 
-## Proyectos relacionados
-
-| Proyecto | Diferenciador |
-|---|---|
-| **memento** | Local-first, KISS, SQLite, sin runtime externo, HRR vectors |
-| **CodeGraph** | Code intelligence (tree-sitter + grafo de símbolos), NO es memoria de agente |
-| **AgentMemory** | Memoria full-featured con iii-engine dedicado, más features, más complejidad |
-
----
-
 ## Auto-Capture (v1.3)
 
 Wire Memento into your host's turn lifecycle so prompts and pre-compact summaries are saved automatically. The agent still calls `mem_save` for explicit decisions; auto-capture fills in the rest.
 
-### Three hooks
+### Tres hooks
 
 | When | What to call | CLI equivalent |
 |---|---|---|
@@ -528,7 +499,7 @@ Wire Memento into your host's turn lifecycle so prompts and pre-compact summarie
 | Before context compaction | `on_compact(session_id, goal=..., accomplishments=..., next_steps=...)` | `memento-capture summary <s> --goal ... --accomplished ...` |
 | Session close | `on_session_close(session_id, ...)` | `memento-capture close <s> ...` |
 
-### Quick start (Python)
+### Inicio rápido (Python)
 
 ```python
 import os
@@ -553,7 +524,7 @@ on_compact(
 on_session_close("sess-1", goal="...", accomplishments=["..."])
 ```
 
-### Quick start (CLI)
+### Inicio rápido (CLI)
 
 ```bash
 # Pre-turn
@@ -571,7 +542,7 @@ memento-capture summary sess-1 \
 memento-capture config
 ```
 
-### Noise filter
+### Filtro de ruido
 
 By default, short confirmations (`ok`, `dale`, `listo`, emojis-only) are dropped before reaching Memento. Override via `~/.memento/capture.yaml`:
 

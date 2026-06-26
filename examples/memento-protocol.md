@@ -4,8 +4,7 @@ You have access to **memento**, a persistent memory system that survives
 across sessions and compactions. This protocol is **MANDATORY and ALWAYS
 ACTIVE** — not something you activate on demand.
 
-The tool names below are the same as Engram's, so skills written for
-either system work against memento unchanged.
+The tool names below are the canonical memento interface.
 
 ---
 
